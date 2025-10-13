@@ -7,7 +7,7 @@ require('dotenv').config();
 
 const app = express();
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: ['http://localhost:5173', 'http://localhost:5000'],
   credentials: true,
 };
 app.use(cors(corsOptions));
@@ -904,6 +904,8 @@ function formatTimeAgo(date) {
   return `${Math.floor(diffInSeconds / 86400)}d ago`;
 }
 
+// ...existing code...
+
 app.get('/api/activities/recent', authenticate, async (req, res) => {
   try {
     const limit = 5; // Show last 5 activities
@@ -925,23 +927,21 @@ app.get('/api/activities/recent', authenticate, async (req, res) => {
       });
     });
 
-    // Get recent attendance records
-    const recentAttendance = await Attendance.find({})
-      .sort({ date: -1 })
-      .limit(1)
-      .populate('student_id', 'name');
+    // Get present count for today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const presentCount = await Attendance.countDocuments({
+      date: today,
+      status: 'present',
+    });
 
-    if (recentAttendance.length > 0) {
-      const attendance = recentAttendance[0];
-      const presentCount = attendance.records.filter(
-        (r) => r.status === 'present'
-      ).length;
+    if (presentCount > 0) {
       activities.push({
         type: 'attendance',
         title: 'Attendance marked',
         description: `${presentCount} students present today`,
         timeAgo: 'Today',
-        created_at: attendance.date,
+        created_at: today,
       });
     }
 
@@ -949,15 +949,14 @@ app.get('/api/activities/recent', authenticate, async (req, res) => {
     const recentGrades = await Grade.find({})
       .sort({ created_at: -1 })
       .limit(1)
-      .populate('student_id', 'name')
-      .populate('subject_id', 'name');
+      .populate('student_id', 'name');
 
     if (recentGrades.length > 0) {
       const grade = recentGrades[0];
       activities.push({
         type: 'grade',
         title: 'Grade added',
-        description: `${grade.student_id.name} scored ${grade.marks}% in ${grade.subject_id.name}`,
+        description: `${grade.student_id.name} scored ${grade.marks}% in ${grade.subject}`,
         timeAgo: formatTimeAgo(grade.created_at),
         created_at: grade.created_at,
       });
@@ -992,6 +991,75 @@ app.get('/api/activities/recent', authenticate, async (req, res) => {
     res.status(500).json({ error: 'Failed to load recent activities' });
   }
 });
+
+// ...existing code...
+
+// ===============================
+// USER PROFILE ROUTES
+// ===============================
+
+// Update user profile
+app.put('/api/users/profile', authenticate, async (req, res) => {
+  const { full_name, email } = req.body;
+
+  try {
+    // Check if email is already taken by another user
+    const existingUser = await User.findOne({ email, _id: { $ne: req.user.id } });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email already in use' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { full_name, email },
+      { new: true, runValidators: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: {
+        id: user._id,
+        full_name: user.full_name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Change user password
+app.put('/api/users/change-password', authenticate, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check current password
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ===============================
 // START SERVER
 // ===============================
