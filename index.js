@@ -26,7 +26,7 @@ mongoose
 // MONGOOSE SCHEMAS & MODELS
 // ===============================
 
-// User Schema (for admin/teacher access)
+// User Schema
 const userSchema = new mongoose.Schema({
   full_name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
@@ -35,28 +35,18 @@ const userSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now },
 });
 
-// Student Schema
+// Student Schema (Simplified)
 const studentSchema = new mongoose.Schema({
   name: { type: String, required: true },
   rollNumber: { type: String, required: true, unique: true },
   class: { type: String, required: true },
-  age: { type: Number, required: true },
-  gender: { type: String, required: true, enum: ['Male', 'Female', 'Other'] },
-  email: { type: String, required: true },
+  email: { type: String },
   phone: { type: String },
-  address: { type: String },
-  guardianName: { type: String },
-  guardianPhone: { type: String },
-  admissionDate: { type: Date, default: Date.now },
-  status: {
-    type: String,
-    default: 'active',
-    enum: ['active', 'inactive', 'graduated'],
-  },
+  status: { type: String, default: 'active', enum: ['active', 'inactive'] },
   created_at: { type: Date, default: Date.now },
 });
 
-// Grade Schema
+// Grade Schema (Simplified)
 const gradeSchema = new mongoose.Schema({
   student_id: {
     type: mongoose.Schema.Types.ObjectId,
@@ -65,14 +55,10 @@ const gradeSchema = new mongoose.Schema({
   },
   subject: { type: String, required: true },
   marks: { type: Number, required: true, min: 0, max: 100 },
-  grade: { type: String },
-  term: { type: String, required: true },
-  academic_year: { type: String, required: true },
-  remarks: { type: String },
   created_at: { type: Date, default: Date.now },
 });
 
-// Attendance Schema
+// Attendance Schema (Simplified)
 const attendanceSchema = new mongoose.Schema({
   student_id: {
     type: mongoose.Schema.Types.ObjectId,
@@ -80,16 +66,11 @@ const attendanceSchema = new mongoose.Schema({
     required: true,
   },
   date: { type: Date, required: true },
-  status: {
-    type: String,
-    required: true,
-    enum: ['present', 'absent', 'late', 'excused'],
-  },
-  remarks: { type: String },
+  status: { type: String, required: true, enum: ['present', 'absent'] },
   created_at: { type: Date, default: Date.now },
 });
 
-// Fee Schema
+// Fee Schema (Simplified)
 const feeSchema = new mongoose.Schema({
   student_id: {
     type: mongoose.Schema.Types.ObjectId,
@@ -97,41 +78,8 @@ const feeSchema = new mongoose.Schema({
     required: true,
   },
   amount: { type: Number, required: true },
-  payment_date: { type: Date, default: Date.now },
-  payment_method: {
-    type: String,
-    enum: ['cash', 'card', 'transfer', 'cheque'],
-  },
-  term: { type: String, required: true },
-  academic_year: { type: String, required: true },
-  status: {
-    type: String,
-    default: 'paid',
-    enum: ['paid', 'pending', 'overdue'],
-  },
-  receipt_number: { type: String },
-  created_at: { type: Date, default: Date.now },
-});
-
-const notificationSchema = new mongoose.Schema({
-  title: { type: String, required: true, trim: true },
-  message: { type: String, required: true, trim: true },
-  type: {
-    type: String,
-    enum: ['info', 'warning', 'success', 'error'],
-    default: 'info',
-  },
-  category: {
-    type: String,
-    enum: ['student', 'grade', 'attendance', 'fee', 'system'],
-    default: 'system',
-  },
-  recipient: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
-  read: { type: Boolean, default: false },
+  status: { type: String, default: 'pending', enum: ['paid', 'pending'] },
+  payment_date: { type: Date },
   created_at: { type: Date, default: Date.now },
 });
 
@@ -141,7 +89,6 @@ const Student = mongoose.model('Student', studentSchema);
 const Grade = mongoose.model('Grade', gradeSchema);
 const Attendance = mongoose.model('Attendance', attendanceSchema);
 const Fee = mongoose.model('Fee', feeSchema);
-const Notification = mongoose.model('Notification', notificationSchema);
 
 // ===============================
 // MIDDLEWARE
@@ -216,6 +163,7 @@ app.post('/register', async (req, res) => {
         full_name: user.full_name,
         email: user.email,
         role: user.role,
+        created_at: user.created_at,
       },
     });
   } catch (err) {
@@ -251,6 +199,7 @@ app.post('/login', async (req, res) => {
         full_name: user.full_name,
         email: user.email,
         role: user.role,
+        created_at: user.created_at,
       },
     });
   } catch (err) {
@@ -263,7 +212,7 @@ app.post('/logout', authenticate, (req, res) => {
 });
 
 // ===============================
-// STUDENT ROUTES (CRUD)
+// STUDENT ROUTES
 // ===============================
 
 // Get all students
@@ -289,7 +238,7 @@ app.get('/api/students', authenticate, async (req, res) => {
   }
 });
 
-// Get single student by ID
+// Get single student
 app.get('/api/students/:id', authenticate, async (req, res) => {
   const { id } = req.params;
 
@@ -304,20 +253,9 @@ app.get('/api/students/:id', authenticate, async (req, res) => {
   }
 });
 
-// Create new student
+// Create student
 app.post('/api/students', authenticate, async (req, res) => {
-  const {
-    name,
-    rollNumber,
-    class: studentClass,
-    age,
-    gender,
-    email,
-    phone,
-    address,
-    guardianName,
-    guardianPhone,
-  } = req.body;
+  const { name, rollNumber, class: studentClass, email, phone } = req.body;
 
   try {
     const existingStudent = await Student.findOne({ rollNumber });
@@ -329,24 +267,11 @@ app.post('/api/students', authenticate, async (req, res) => {
       name,
       rollNumber,
       class: studentClass,
-      age,
-      gender,
       email,
       phone,
-      address,
-      guardianName,
-      guardianPhone,
     });
 
     await student.save();
-    const notification = new Notification({
-      title: 'New Student Added',
-      message: `${student.name} has been added to class ${student.class}`,
-      type: 'success',
-      category: 'student',
-      recipient: req.user.id,
-    });
-    await notification.save();
     res.status(201).json({ message: 'Student created successfully', student });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -393,32 +318,11 @@ app.delete('/api/students/:id', authenticate, async (req, res) => {
   }
 });
 
-// Bulk import students
-app.post('/api/students/bulk', authenticate, async (req, res) => {
-  const students = req.body.students;
-
-  if (!Array.isArray(students)) {
-    return res
-      .status(400)
-      .json({ error: 'Invalid data format. Expected an array of students.' });
-  }
-
-  try {
-    const result = await Student.insertMany(students, { ordered: false });
-    res.status(201).json({
-      message: `${result.length} students imported successfully`,
-      students: result,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // ===============================
 // GRADE ROUTES
 // ===============================
 
-// Get all grades (NEW ENDPOINT)
+// Get all grades
 app.get('/api/grades/all', authenticate, async (req, res) => {
   try {
     const grades = await Grade.find({})
@@ -445,36 +349,18 @@ app.get('/api/grades/student/:studentId', authenticate, async (req, res) => {
   }
 });
 
+// Add grade
 app.post('/api/grades', authenticate, async (req, res) => {
-  const { student_id, subject, marks, term, academic_year, remarks } = req.body;
+  const { student_id, subject, marks } = req.body;
 
   try {
-    let grade = 'F';
-    if (marks >= 90) grade = 'A+';
-    else if (marks >= 80) grade = 'A';
-    else if (marks >= 70) grade = 'B';
-    else if (marks >= 60) grade = 'C';
-    else if (marks >= 50) grade = 'D';
-
     const gradeRecord = new Grade({
       student_id,
       subject,
       marks,
-      grade,
-      term,
-      academic_year,
-      remarks,
     });
 
     await gradeRecord.save();
-    const notification = new Notification({
-      title: 'Grade Added',
-      message: `Grade for ${subject} has been recorded`,
-      type: 'info',
-      category: 'grade',
-      recipient: req.user.id,
-    });
-    await notification.save();
     res
       .status(201)
       .json({ message: 'Grade added successfully', grade: gradeRecord });
@@ -487,6 +373,7 @@ app.post('/api/grades', authenticate, async (req, res) => {
 // ATTENDANCE ROUTES
 // ===============================
 
+// Get attendance by date
 app.get('/api/attendance', authenticate, async (req, res) => {
   try {
     const { date } = req.query;
@@ -495,7 +382,6 @@ app.get('/api/attendance', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Date parameter is required' });
     }
 
-    // Parse the date and set to start of day
     const searchDate = new Date(date);
     searchDate.setHours(0, 0, 0, 0);
 
@@ -513,32 +399,28 @@ app.get('/api/attendance', authenticate, async (req, res) => {
 });
 
 // Get attendance for a student
-app.get(
-  '/api/attendance/student/:studentId',
-  authenticate,
-  async (req, res) => {
-    const { studentId } = req.params;
-    const { startDate, endDate } = req.query;
+app.get('/api/attendance/student/:studentId', authenticate, async (req, res) => {
+  const { studentId } = req.params;
+  const { startDate, endDate } = req.query;
 
-    try {
-      let query = { student_id: studentId };
-      if (startDate && endDate) {
-        query.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
-      }
-
-      const attendance = await Attendance.find(query)
-        .populate('student_id', 'name rollNumber class')
-        .sort({ date: -1 });
-      res.json(attendance);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
+  try {
+    let query = { student_id: studentId };
+    if (startDate && endDate) {
+      query.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
     }
+
+    const attendance = await Attendance.find(query)
+      .populate('student_id', 'name rollNumber class')
+      .sort({ date: -1 });
+    res.json(attendance);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-);
+});
 
 // Mark attendance
 app.post('/api/attendance', authenticate, async (req, res) => {
-  const { student_id, date, status, remarks } = req.body;
+  const { student_id, date, status } = req.body;
 
   try {
     const existingAttendance = await Attendance.findOne({
@@ -548,7 +430,6 @@ app.post('/api/attendance', authenticate, async (req, res) => {
 
     if (existingAttendance) {
       existingAttendance.status = status;
-      existingAttendance.remarks = remarks;
       await existingAttendance.save();
       return res.json({
         message: 'Attendance updated successfully',
@@ -560,7 +441,6 @@ app.post('/api/attendance', authenticate, async (req, res) => {
       student_id,
       date,
       status,
-      remarks,
     });
 
     await attendance.save();
@@ -572,6 +452,7 @@ app.post('/api/attendance', authenticate, async (req, res) => {
   }
 });
 
+// Attendance stats
 app.get('/api/attendance/stats', authenticate, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
@@ -582,7 +463,6 @@ app.get('/api/attendance/stats', authenticate, async (req, res) => {
         date: { $gte: new Date(startDate), $lte: new Date(endDate) },
       };
     } else {
-      // Default to current month
       const now = new Date();
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -598,11 +478,10 @@ app.get('/api/attendance/stats', authenticate, async (req, res) => {
         },
       },
     ]);
+    
     const formattedStats = {
       present: 0,
       absent: 0,
-      late: 0,
-      excused: 0,
     };
 
     stats.forEach((stat) => {
@@ -619,20 +498,18 @@ app.get('/api/attendance/stats', authenticate, async (req, res) => {
 // FEE ROUTES
 // ===============================
 
+// Get all fees
 app.get('/api/fees', authenticate, async (req, res) => {
   try {
-    const { status, term, academic_year } = req.query;
+    const { status } = req.query;
     let query = {};
 
     if (status) query.status = status;
-    if (term) query.term = term;
-    if (academic_year) query.academic_year = academic_year;
 
     const fees = await Fee.find(query)
       .populate('student_id', 'name rollNumber class email')
       .sort({ payment_date: -1 });
 
-    // Add student_name field for easier access in frontend
     const formattedFees = fees.map((fee) => ({
       ...fee.toObject(),
       student_name: fee.student_id?.name || 'N/A',
@@ -660,47 +537,52 @@ app.get('/api/fees/student/:studentId', authenticate, async (req, res) => {
 
 // Add fee payment
 app.post('/api/fees', authenticate, async (req, res) => {
-  const {
-    student_id,
-    amount,
-    payment_method,
-    term,
-    academic_year,
-    receipt_number,
-    status,
-  } = req.body;
+  const { student_id, amount, status } = req.body;
 
   try {
     const fee = new Fee({
       student_id,
       amount,
-      payment_method,
-      term,
-      academic_year,
-      receipt_number,
-      status: status || 'paid',
+      status: status || 'pending',
+      payment_date: status === 'paid' ? new Date() : null,
     });
 
     await fee.save();
-    const notification = new Notification({
-      title: 'Fee Payment Recorded',
-      message: `Payment of ₦${amount.toLocaleString()} has been recorded`,
-      type: 'success',
-      category: 'fee',
-      recipient: req.user.id,
-    });
-    await notification.save();
-    res.status(201).json({ message: 'Fee payment recorded successfully', fee });
+    res.status(201).json({ message: 'Fee recorded successfully', fee });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update fee status
+app.put('/api/fees/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  try {
+    const fee = await Fee.findByIdAndUpdate(
+      id,
+      { 
+        status,
+        payment_date: status === 'paid' ? new Date() : null
+      },
+      { new: true }
+    );
+    
+    if (!fee) {
+      return res.status(404).json({ error: 'Fee not found' });
+    }
+    
+    res.json({ message: 'Fee updated successfully', fee });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // ===============================
-// REPORTS & STATISTICS
+// DASHBOARD STATS
 // ===============================
 
-// Dashboard stats
 app.get('/api/stats/dashboard', authenticate, async (req, res) => {
   try {
     const totalStudents = await Student.countDocuments();
@@ -728,272 +610,6 @@ app.get('/api/stats/dashboard', authenticate, async (req, res) => {
   }
 });
 
-// Class-wise student count
-app.get('/api/reports/class-distribution', authenticate, async (req, res) => {
-  try {
-    const distribution = await Student.aggregate([
-      { $match: { status: 'active' } },
-      { $group: { _id: '$class', count: { $sum: 1 } } },
-      { $sort: { _id: 1 } },
-    ]);
-
-    res.json(distribution);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Top performers
-app.get('/api/reports/top-performers', authenticate, async (req, res) => {
-  try {
-    const topPerformers = await Grade.aggregate([
-      {
-        $group: {
-          _id: '$student_id',
-          averageMarks: { $avg: '$marks' },
-          totalSubjects: { $sum: 1 },
-        },
-      },
-      { $sort: { averageMarks: -1 } },
-      { $limit: 10 },
-      {
-        $lookup: {
-          from: 'students',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'student',
-        },
-      },
-      { $unwind: '$student' },
-      {
-        $project: {
-          name: '$student.name',
-          rollNumber: '$student.rollNumber',
-          class: '$student.class',
-          averageMarks: 1,
-          totalSubjects: 1,
-        },
-      },
-    ]);
-
-    res.json(topPerformers);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ... existing code ...
-
-// ===============================
-// NOTIFICATION ROUTES
-// ===============================
-
-// Get all notifications for the current user
-app.get('/api/notifications', authenticate, async (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit) || 0;
-    const notifications = await Notification.find({
-      recipient: req.user.id,
-    })
-      .sort({ created_at: -1 })
-      .limit(limit);
-
-    res.json(notifications);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Get unread notification count
-app.get('/api/notifications/unread-count', authenticate, async (req, res) => {
-  try {
-    const count = await Notification.countDocuments({
-      recipient: req.user.id,
-      read: false,
-    });
-
-    res.json({ count });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Mark notification as read
-app.put('/api/notifications/:id/read', authenticate, async (req, res) => {
-  try {
-    const notification = await Notification.findOneAndUpdate(
-      { _id: req.params.id, recipient: req.user.id },
-      { read: true },
-      { new: true }
-    );
-
-    if (!notification) {
-      return res.status(404).json({ error: 'Notification not found' });
-    }
-
-    res.json(notification);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Mark all notifications as read
-app.put('/api/notifications/mark-all-read', authenticate, async (req, res) => {
-  try {
-    await Notification.updateMany(
-      { recipient: req.user.id, read: false },
-      { read: true }
-    );
-
-    res.json({ message: 'All notifications marked as read' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Delete notification
-app.delete('/api/notifications/:id', authenticate, async (req, res) => {
-  try {
-    const notification = await Notification.findOneAndDelete({
-      _id: req.params.id,
-      recipient: req.user.id,
-    });
-
-    if (!notification) {
-      return res.status(404).json({ error: 'Notification not found' });
-    }
-
-    res.json({ message: 'Notification deleted' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Create notification (for internal use - can be called from other routes)
-app.post('/api/notifications', authenticate, async (req, res) => {
-  try {
-    const { title, message, type, category, recipient } = req.body;
-
-    const notification = new Notification({
-      title,
-      message,
-      type: type || 'info',
-      category,
-      recipient: recipient || req.user.id,
-    });
-
-    await notification.save();
-
-    res.status(201).json(notification);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ===============================
-// RECENT ACTIVITIES ROUTE
-// ===============================
-
-function formatTimeAgo(date) {
-  const now = new Date();
-  const diffInSeconds = Math.floor((now - new Date(date)) / 1000);
-
-  if (diffInSeconds < 60) return 'Just now';
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-  return `${Math.floor(diffInSeconds / 86400)}d ago`;
-}
-
-// ...existing code...
-
-app.get('/api/activities/recent', authenticate, async (req, res) => {
-  try {
-    const limit = 5; // Show last 5 activities
-    const activities = [];
-
-    // Get recent students
-    const recentStudents = await Student.find({})
-      .sort({ created_at: -1 })
-      .limit(2)
-      .select('name created_at');
-
-    recentStudents.forEach((student) => {
-      activities.push({
-        type: 'student',
-        title: 'New student enrolled',
-        description: `${student.name} joined the school`,
-        timeAgo: formatTimeAgo(student.created_at),
-        created_at: student.created_at,
-      });
-    });
-
-    // Get present count for today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const presentCount = await Attendance.countDocuments({
-      date: today,
-      status: 'present',
-    });
-
-    if (presentCount > 0) {
-      activities.push({
-        type: 'attendance',
-        title: 'Attendance marked',
-        description: `${presentCount} students present today`,
-        timeAgo: 'Today',
-        created_at: today,
-      });
-    }
-
-    // Get recent grades
-    const recentGrades = await Grade.find({})
-      .sort({ created_at: -1 })
-      .limit(1)
-      .populate('student_id', 'name');
-
-    if (recentGrades.length > 0) {
-      const grade = recentGrades[0];
-      activities.push({
-        type: 'grade',
-        title: 'Grade added',
-        description: `${grade.student_id.name} scored ${grade.marks}% in ${grade.subject}`,
-        timeAgo: formatTimeAgo(grade.created_at),
-        created_at: grade.created_at,
-      });
-    }
-
-    // Get recent fee payments
-    const recentFees = await Fee.find({ status: 'paid' })
-      .sort({ created_at: -1 })
-      .limit(1)
-      .populate('student_id', 'name');
-
-    if (recentFees.length > 0) {
-      const fee = recentFees[0];
-      activities.push({
-        type: 'fee',
-        title: 'Fee payment received',
-        description: `₦${fee.amount.toLocaleString()} from ${
-          fee.student_id.name
-        }`,
-        timeAgo: formatTimeAgo(fee.created_at),
-        created_at: fee.created_at,
-      });
-    }
-
-    // Sort activities by creation date and limit
-    activities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    const limitedActivities = activities.slice(0, limit);
-
-    res.json(limitedActivities);
-  } catch (err) {
-    console.error('Error fetching recent activities:', err);
-    res.status(500).json({ error: 'Failed to load recent activities' });
-  }
-});
-
-// ...existing code...
-
 // ===============================
 // USER PROFILE ROUTES
 // ===============================
@@ -1003,7 +619,6 @@ app.put('/api/users/profile', authenticate, async (req, res) => {
   const { full_name, email } = req.body;
 
   try {
-    // Check if email is already taken by another user
     const existingUser = await User.findOne({ email, _id: { $ne: req.user.id } });
     if (existingUser) {
       return res.status(400).json({ error: 'Email already in use' });
@@ -1026,6 +641,7 @@ app.put('/api/users/profile', authenticate, async (req, res) => {
         full_name: user.full_name,
         email: user.email,
         role: user.role,
+        created_at: user.created_at,
       },
     });
   } catch (err) {
@@ -1043,13 +659,11 @@ app.put('/api/users/change-password', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check current password
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res.status(400).json({ error: 'Current password is incorrect' });
     }
 
-    // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
     await user.save();
